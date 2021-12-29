@@ -1,20 +1,55 @@
-<html>
-     
+<html> 
   <head>
-<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-      <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-      <script src="https://cdn.jsdelivr.net/npm/zlibjs@0.3.1/bin/zlib.min.js"></script>
-      <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
-      <script>
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+       <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+       <script src="https://cdn.jsdelivr.net/npm/zlibjs@0.3.1/bin/zlib.min.js"></script>
+       <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
+       <style type="text/css">
+            .actor {
+                width: 75px; 
+                margin-bottom: 5px;
+            }
+            #select-actor, #enter-ar, #has-actor {
+                text-align: center;
+                position: absolute;
+                bottom: 50;
+                left: 50vw;
+                transform: translateX(-50%);
+                z-index: 10000;
+            }
+            .btn-select {
+              width: 60px; 
+              height: 60px; 
+              border-radius: 50%;
+            }
+            #actors {
+              position: absolute; 
+              padding: 10px; 
+              top: 0;
+              left: 0; 
+              width: calc(100vw - 20px); 
+              height: 100vh;
+              display: block; 
+              flex-wrap: wrap; 
+              justify-content: space-between; 
+              background: white;
+            }
+            #actors-content {
+              display: flex;
+              justify-content: space-between;
+              flex-wrap: wrap;
+            }
+       </style>
+       <script>
           let positionReticle;
-          window.addEventListener("touchstart", (event) => {
-            console.log("TOUCH START")
-              if (positionReticle) {
-                console.log("POSITION", positionReticle)
-                  const dino = document.getElementById("dino");
-                  dino.setAttribute("position", positionReticle)
-              }
-          });
+        //   window.addEventListener("touchstart", (event) => {
+        //     console.log("TOUCH START")
+        //       if (positionReticle) {
+        //         console.log("POSITION", positionReticle)
+        //           const dino = document.getElementById("dino");
+        //           dino.setAttribute("position", positionReticle)
+        //       }
+        //   });
 
           AFRAME.registerComponent('ar-hit-test', {
               init: function () {
@@ -46,8 +81,21 @@
                       session.addEventListener('select', () => {
                           const reticle = document.getElementById("idreticle")
                           const positon = reticle.getAttribute("position")
-                          const dino = document.getElementById("dino")
-                          dino.setAttribute("position", `${positon.x} ${positon.y} ${positon.z}`)
+                          if (currentActor && currentStep == step.AR_HAS_ACTOR) {
+                            // const dino = document.getElementById("dino")
+                            // dino.setAttribute("position", `${positon.x} ${positon.y} ${positon.z}`)
+                            const scene = document.querySelector('a-scene')
+                            const entity = document.createElement("a-entity");
+                            entity.setAttribute("position", `${positon.x} ${positon.y} ${positon.z}`)
+                            entity.setAttribute("animation-mixer","clip:Take 001;")
+                            entity.setAttribute("scale", "0.003 0.003 0.003")
+                            entity.setAttribute("fbx-model",`src: url(${currentActor.url});`)
+                            scene.appendChild(entity)
+
+                            currentActor = null;
+                            currentStep = step.SELECT_ACTOR;
+                            showOverlay(currentStep);
+                          }
                       });
                   });
               },
@@ -79,6 +127,24 @@
       </script>
   </head>
   <body>
+    <div id="overlay" style="width: 100vw; height: 100vh;z-index: 1000;">
+        <div id="enter-ar">
+          <button onclick="goToAr()" class="btn-select" >
+          </button>
+        </div>
+        <div id="select-actor">
+            <button onclick="showActorList()" class="btn-select">
+            </button>
+        </div>
+        <div id="actors">
+          <div id="actors-content">
+
+          </div>
+        </div>
+        <div id="has-actor">
+
+        </div>
+    </div>
     <a-scene webxr="requiredFeatures: hit-test,local;
     referenceSpaceType:local;
     optionalFeatures: dom-overlay;
@@ -95,13 +161,129 @@
           <a-asset-item id="bird" response-type="arraybuffer" src="https://cdn.glitch.com/1061d524-9d0f-4b25-97fd-48ebd0fce63c%2Fsceneglb.glb?1546534633849"></a-asset-item>
         </a-assets>
 <!--        <a-entity id="dino" gltf-model="#bird" scale="0.001 0.001 0.001" position="0 0 0" animation-mixer="clip:Take 001;"></a-entity>-->
-         <a-entity id="dino" fbx-model="src: url(models/dino_Ver2.fbx);" scale="0.003 0.003 0.003" position="0 0 0" animation-mixer="clip:Take 001;"></a-entity>
+         <!-- <a-entity id="dino" fbx-model="src: url(models/dino_Ver2.fbx);" scale="0.003 0.003 0.003" position="0 0 0" animation-mixer="clip:Take 001;"></a-entity> -->
 <!--        &lt;!&ndash; <a-camera position="0 2 4"> &ndash;&gt;-->
 <!--      </a-camera>-->
         <a-entity id="idreticle" gltf-model="#reticle" scale="0.8 0.8 0.8" ar-hit-test></a-entity>
 
       </a-scene>
       <script>
+          const step = {
+            AR: 1,
+            LIST_ACTOR: 2,
+            SELECT_ACTOR: 4,
+            AR_HAS_ACTOR: 3,
+          };
+          let currentStep = step.AR;
+          var currentActor;
+          var actors = [
+              {
+                url: "models/dino_Ver2.fbx", 
+                name: "Dino Ver2",
+                avatar: "avatars/Dino1_1.png"
+              }, {
+                url: "models/Dino VS Bat_1-1.fbx", 
+                name: "Dino VS Bat_1-1",
+                avatar: "avatars/Dino1_1.png"
+              }, {
+                url: "models/Dino VS Bat_1-3.fbx", 
+                name: "Dino VS Bat_1-3.fbx",
+                avatar: "avatars/Dino1_3.png"
+              }, {
+                url: "models/Dino VS Bat_1-5.fbx", 
+                name: "Dino VS Bat_1-5.fbx",
+                avatar: "avatars/Dino1_5.png"
+              }, {
+                url: "models/Dino VS Boss_1-1.fbx", 
+                name: "Dino VS Boss_1-1.fbx",
+                avatar: "avatars/Dino1_1.png"
+              }, {
+                url: "models/Dino VS Boss_1-3.fbx", 
+                name: "Dino VS Boss_1-3.fbx",
+                avatar: "avatars/Dino1_3.png"
+              }, {
+                url: "models/Dino VS Boss_1-5.fbx", 
+                name: "Dino VS Boss_1-5.fbx",
+                avatar: "avatars/Dino1_5.png"
+              }, {
+                url: "models/dino_1-3.fbx", 
+                name: "dino_1-3",
+                avatar: "avatars/Dino1_3.png"
+              },
+              {
+                url: "models/dino_1-5.fbx", 
+                name: "dino_1-5",
+                avatar: "avatars/Dino1_5.png"
+              }
+          ];
+          var elementOverlay = [
+              {
+                active: step.AR,
+                element: document.querySelector("#enter-ar")
+              }, 
+              {
+                active: step.LIST_ACTOR,
+                element: document.querySelector("#actors")
+              }, 
+              {
+                active: step.SELECT_ACTOR,
+                element: document.querySelector("#select-actor")
+              },
+              {
+                active: step.AR_HAS_ACTOR,
+                element: document.querySelector("#has-actor")
+              }
+          ]
+
+          getActors();
+          showOverlay(currentStep);
+
+          function showOverlay(currentStep){
+            elementOverlay.forEach(item => {
+                const {element, active} = item;
+                if (currentStep !== active) {
+                  element.style.display = "none";
+                } else {
+                  element.style.display = "block";
+                }
+            })
+          }
+          function getActors(){
+            const actorsElement = document.querySelector("#actors-content");
+            actors.forEach(item => {
+                const element = document.createElement("div");
+                element.classList.add("actor");
+                // element.innerText = item.name;
+                element.innerHTML = `<img style="width:75px;height:85px;object-fix:cover" src="${item.avatar}" />`
+                element.innerHTML += `<span>${item.name}</span>`
+                element.addEventListener("click", () => {
+                  currentActor = item;
+                  setTimeout(() => {
+                    currentStep = step.AR_HAS_ACTOR;
+                    showOverlay(currentStep);
+                    const hasActorElement = document.querySelector("#has-actor");
+                    hasActorElement.innerHTML = `<img style="width:75px;height:85px;object-fix:cover" src="${item.avatar}" />`
+                  }, 500)
+                })
+                actorsElement.appendChild(element);
+            });
+          }
+
+          function showActorList() {
+            currentStep = step.LIST_ACTOR;
+            showOverlay(currentStep)
+          }
+          function chooseActor(actor) {
+            currentActor = actor;
+          }
+          function goToAr(){
+              if (currentStep == step.AR) {
+                currentStep = step.SELECT_ACTOR;
+                showOverlay(currentStep);
+                const scene = document.querySelector("a-scene")
+                scene.enterAR();
+              } 
+          }
       </script>
   </body>
 </html>
